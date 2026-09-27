@@ -155,7 +155,7 @@ table.slim{min-width:640px}
 .seg.small button.on{background:var(--green);color:#fff}
 .seg.small button.ghost{background:var(--green-soft);color:var(--green)}
 .sheet{border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.srow{display:grid;grid-template-columns:36px minmax(160px,2fr) minmax(120px,1.1fr) minmax(120px,1.1fr) minmax(130px,1.3fr) 150px 36px;align-items:stretch;border-top:1px solid var(--line)}
+.srow{display:grid;grid-template-columns:36px minmax(180px,2fr) minmax(130px,1.1fr) minmax(140px,1.3fr) 150px 36px;align-items:stretch;border-top:1px solid var(--line)}
 .shead{border-top:0;background:var(--bg);font-size:13px;font-weight:600;color:var(--muted)}
 .shead>div{padding:8px 8px}
 .srow>div{min-width:0;border-inline-start:1px solid var(--line)}
@@ -430,6 +430,7 @@ table.slim{min-width:640px}
       <div class="toolbar">
         <button class="btn small" id="btn-backup">تنزيل نسخة كاملة (JSON)</button>
         <label class="btn small" for="restore-file" style="cursor:pointer">رفع بيانات من النسخة القديمة</label>
+        <button class="btn small" id="btn-purge-nid" style="color:var(--red)">حذف كل أرقام الهويات من الخادم</button>
         <input type="file" id="restore-file" accept=".json,application/json" hidden>
       </div>
       <div class="msg" id="data-msg" role="status"></div>
@@ -463,7 +464,6 @@ table.slim{min-width:640px}
           <div class="c-n" role="columnheader">#</div>
           <div role="columnheader">الاسم</div>
           <div role="columnheader">رقم الجوال</div>
-          <div role="columnheader">رقم الهوية</div>
           <div role="columnheader">البلدية</div>
           <div role="columnheader">التخصص</div>
           <div class="c-x" role="columnheader"><span class="sr">حذف</span></div>
@@ -484,11 +484,11 @@ table.slim{min-width:640px}
     <section class="block">
       <h2>المراقبون المسجلون <span class="pct" id="insp-count"></span></h2>
       <div class="filters" style="margin-bottom:10px">
-        <input id="iq" type="search" placeholder="بحث بالاسم أو الجوال أو الهوية" aria-label="بحث في المراقبين">
+        <input id="iq" type="search" placeholder="بحث بالاسم أو الجوال" aria-label="بحث في المراقبين">
       </div>
       <div class="tablewrap" style="border:0">
         <table class="slim">
-          <thead><tr><th>الاسم</th><th>رقم الجوال</th><th>رقم الهوية</th><th>البلدية</th><th>التخصص</th><th>آخر تقييم</th><th></th></tr></thead>
+          <thead><tr><th>الاسم</th><th>رقم الجوال</th><th>البلدية</th><th>التخصص</th><th>آخر تقييم</th><th></th></tr></thead>
           <tbody id="itbody"></tbody>
         </table>
       </div>
@@ -538,7 +538,7 @@ table.slim{min-width:640px}
   <div id="view-records" hidden>
     <div class="stats" id="stats"></div>
     <div class="filters">
-      <input id="q" type="search" placeholder="بحث بالاسم أو رقم الجوال أو الهوية" aria-label="بحث">
+      <input id="q" type="search" placeholder="بحث بالاسم أو رقم الجوال" aria-label="بحث">
       <select id="fl-muni" aria-label="البلدية"><option value="">كل البلديات</option></select>
       <select id="fl-month" aria-label="الشهر"><option value="">كل الأشهر</option></select>
       <select id="fl-spec" aria-label="التخصص"><option value="">كل التخصصات</option><option>صحي</option><option>تجاري</option></select>
@@ -559,7 +559,6 @@ table.slim{min-width:640px}
   <div class="fields">
     <div class="field full"><label for="d-name">الاسم</label><input id="d-name"><div class="err" id="de-name"></div></div>
     <div class="field"><label for="d-mobile">رقم الجوال</label><input id="d-mobile" type="tel" inputmode="tel" dir="ltr" style="text-align:right"><div class="err" id="de-mobile"></div></div>
-    <div class="field"><label for="d-nid">رقم الهوية</label><input id="d-nid" inputmode="numeric" maxlength="10"><div class="err" id="de-nid"></div></div>
     <div class="field"><label for="d-muni">البلدية</label><input id="d-muni" list="muni-list"><div class="err" id="de-muni"></div></div>
     <div class="field"><label>التخصص</label>
       <div class="seg small" id="d-spec"><button type="button" data-v="صحي">صحي</button><button type="button" data-v="تجاري">تجاري</button></div>
@@ -583,7 +582,7 @@ table.slim{min-width:640px}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, createUserWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot, writeBatch } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot, writeBatch, deleteField } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyB6BSFrhIk_BkaKqaM01U6vLh2ocT_O900",
@@ -701,18 +700,16 @@ function checkInsp(o, exceptId){
   if(!o.name) e.name = "اكتب الاسم";
   if(!o.mobile) e.mobile = "اكتب رقم الجوال"; else if(!/^05\d{8}$/.test(o.mobile)) e.mobile = "يجب أن يكون 05 ثم 8 أرقام";
   else if(state.inspectors.some(x=>x.mobile===o.mobile && x.id!==exceptId)) e.mobile = "مسجل مسبقاً لمراقب آخر";
-  if(!o.nid) e.nid = "اكتب رقم الهوية"; else if(!/^[12]\d{9}$/.test(o.nid)) e.nid = "١٠ أرقام تبدأ بـ 1 أو 2";
-  else if(state.inspectors.some(x=>x.nid===o.nid && x.id!==exceptId)) e.nid = "مسجل مسبقاً لمراقب آخر";
   if(!o.muni) e.muni = "اكتب البلدية";
   if(!o.spec) e.spec = "اختر التخصص";
   return e;
 }
 
 /* --- entry sheet --- */
-const FIELDS = ["name","mobile","nid","muni","spec"];
-const FLABEL = {name:"الاسم",mobile:"رقم الجوال",nid:"رقم الهوية",muni:"البلدية",spec:"التخصص"};
+const FIELDS = ["name","mobile","muni","spec"];
+const FLABEL = {name:"الاسم",mobile:"رقم الجوال",muni:"البلدية",spec:"التخصص"};
 const DKEY = KEY + "-draft";
-const blankRow = () => ({name:"",mobile:"",nid:"",muni:"",spec:"",touched:false});
+const blankRow = () => ({name:"",mobile:"",muni:"",spec:"",touched:false});
 let sheet = {rows:[], defMuni:"", defSpec:""};
 const rowsEl = $("#sheet-rows");
 function loadDraft(){
@@ -724,8 +721,8 @@ let draftTimer = null;
 function flushDraft(){ clearTimeout(draftTimer); try{ localStorage.setItem(DKEY, JSON.stringify(sheet)); }catch{} }
 addEventListener("pagehide", flushDraft); addEventListener("beforeunload", flushDraft);
 function saveDraft(){ clearTimeout(draftTimer); draftTimer = setTimeout(()=>{ try{ localStorage.setItem(DKEY, JSON.stringify(sheet)); }catch{} }, 300); }
-const isEmptyRow = r => !r.name.trim() && !r.mobile.trim() && !r.nid.trim() && !r.muni.trim() && !r.spec;
-const effective = r => ({name:r.name.trim().replace(/\s+/g," "), mobile:normMobile(r.mobile), nid:normNid(r.nid),
+const isEmptyRow = r => !r.name.trim() && !r.mobile.trim() && !r.muni.trim() && !r.spec;
+const effective = r => ({name:r.name.trim().replace(/\s+/g," "), mobile:normMobile(r.mobile),
   muni:(r.muni.trim()||sheet.defMuni.trim()), spec:(r.spec||sheet.defSpec)});
 
 function rowHtml(i){ const r = sheet.rows[i]; return `
@@ -733,7 +730,6 @@ function rowHtml(i){ const r = sheet.rows[i]; return `
       <div class="c-n" role="cell">${i+1}</div>
       <div class="cell c-name" role="cell" data-label="الاسم"><input data-f="name" value="${esc(r.name)}" aria-label="الاسم، صف ${i+1}" autocomplete="off"><div class="e"></div></div>
       <div class="cell" role="cell" data-label="رقم الجوال"><input data-f="mobile" value="${esc(r.mobile)}" type="tel" inputmode="tel" dir="ltr" style="text-align:right" placeholder="05xxxxxxxx" aria-label="رقم الجوال، صف ${i+1}" autocomplete="off"><div class="e"></div></div>
-      <div class="cell" role="cell" data-label="رقم الهوية"><input data-f="nid" value="${esc(r.nid)}" inputmode="numeric" aria-label="رقم الهوية، صف ${i+1}" autocomplete="off"><div class="e"></div></div>
       <div class="cell" role="cell" data-label="البلدية"><input data-f="muni" value="${esc(r.muni)}" list="muni-list" aria-label="البلدية، صف ${i+1}" autocomplete="off"><div class="e"></div></div>
       <div class="cell spec" role="cell" data-label="التخصص"><div class="seg small" role="group" aria-label="التخصص، صف ${i+1}"><button type="button" data-sv="صحي">صحي</button><button type="button" data-sv="تجاري">تجاري</button></div><div class="e"></div></div>
       <div class="c-x" role="cell"><button type="button" data-del title="حذف الصف" aria-label="حذف الصف ${i+1}">×</button></div>
@@ -755,7 +751,6 @@ function validateSheet(){
     if(o){
       errs = checkInsp(o, null);
       if(!errs.mobile && o.mobile && count("mobile",o.mobile)>1) errs.mobile = "مكرر في الجدول";
-      if(!errs.nid && o.nid && count("nid",o.nid)>1) errs.nid = "مكرر في الجدول";
       Object.keys(errs).length ? bad++ : ready++;
     }
     el.classList.toggle("ok", !!o && !Object.keys(errs).length);
@@ -794,7 +789,6 @@ rowsEl.addEventListener("focusout", e=>{
   if(e.relatedTarget && row.contains(e.relatedTarget)) return;
   const i = +row.dataset.i, r = sheet.rows[i]; if(!r) return;
   if(r.mobile){ const m = normMobile(r.mobile); if(/^05\d{8}$/.test(m) && m!==r.mobile){ r.mobile = m; row.querySelector('[data-f="mobile"]').value = m; } }
-  if(r.nid){ const n = normNid(r.nid); if(n!==r.nid){ r.nid = n; row.querySelector('[data-f="nid"]').value = n; } }
   if(!isEmptyRow(r)) r.touched = true;
   validateSheet(); saveDraft();
 });
@@ -842,7 +836,7 @@ function fillSheet(rawRows, startRow, startCol){
   ensureRows(startRow + data.length + 1);
   data.forEach((c,k)=>{
     const r = sheet.rows[startRow+k];
-    FIELDS.forEach(f=>{ if(map[f]!==undefined){ const v = c[map[f]]||""; r[f] = f==="spec" ? normSpec(v) : f==="mobile" ? (normMobile(v)||v) : f==="nid" ? (normNid(v)||v) : v; } });
+    FIELDS.forEach(f=>{ if(map[f]!==undefined){ const v = c[map[f]]||""; r[f] = f==="spec" ? normSpec(v) : f==="mobile" ? (normMobile(v)||v) : v; } });
     r.touched = true;
   });
   renderSheet(); saveDraft();
@@ -856,7 +850,7 @@ $("#sheet-save").onclick = async ()=>{
   sheet.rows.forEach((r,i)=>{
     const o = effs[i]; if(!o) return;
     const errs = checkInsp(o, null);
-    const dupM = effs.filter(x=>x && x.mobile===o.mobile).length>1, dupN = effs.filter(x=>x && x.nid===o.nid).length>1;
+    const dupM = effs.filter(x=>x && x.mobile===o.mobile).length>1, dupN = false;
     if(Object.keys(errs).length || dupM || dupN){ r.touched = true; keep.push(r); return; }
     toAdd.push({...o, createdAt:new Date().toISOString(), createdBy:me.id}); names.push(o.name);
   });
@@ -899,7 +893,8 @@ function findHeader(rows){
   for(let i=0;i<Math.min(rows.length,10);i++){
     const map = {}; rows[i].forEach((c,j)=>{
       const t = cellStr(c); if(!t || t.length>40) return;
-      for(const k of ["mobile","nid","muni","spec","name"]) if(map[k]===undefined && COLS[k].test(t)){ if(k==="name" && /بلدي/.test(t)) continue; map[k]=j; break; }
+      if(COLS.nid.test(t) && !COLS.mobile.test(t)) return;   // national-ID column: ignored on purpose
+      for(const k of ["mobile","muni","spec","name"]) if(map[k]===undefined && COLS[k].test(t)){ if(k==="name" && /بلدي/.test(t)) continue; map[k]=j; break; }
     });
     if(map.name!==undefined && Object.keys(map).length>=2) return {row:i, map};
   }
@@ -939,7 +934,7 @@ function saveXlsx(filename, aoa, textCols, widths){
   XLSX.utils.book_append_sheet(wb, ws, "البيانات");
   XLSX.writeFile(wb, filename);
 }
-$("#tpl").onclick = ()=> saveXlsx("نموذج-المراقبين.xlsx", [["الاسم","رقم الجوال","رقم الهوية","البلدية","التخصص"]], [1,2], [30,14,14,20,10]);
+$("#tpl").onclick = ()=> saveXlsx("نموذج-المراقبين.xlsx", [["الاسم","رقم الجوال","البلدية","التخصص"]], [1], [30,14,20,10]);
 
 /* --- registered list --- */
 function lastEval(id){
@@ -947,12 +942,12 @@ function lastEval(id){
 }
 function renderInspectors(){
   const q = toEn($("#iq").value.trim()).toLowerCase();
-  const list = state.inspectors.filter(x=> !q || [x.name,x.mobile,x.nid].some(v=>String(v||"").toLowerCase().includes(q)))
+  const list = state.inspectors.filter(x=> !q || [x.name,x.mobile].some(v=>String(v||"").toLowerCase().includes(q)))
     .sort((a,b)=>a.name.localeCompare(b.name,"ar"));
   $("#insp-count").textContent = state.inspectors.length ? `(${state.inspectors.length})` : "";
   $("#itbody").innerHTML = list.length ? list.map(x=>{
     const le = lastEval(x.id); const [g,c] = grade(le?.total);
-    return `<tr><td>${esc(x.name)}</td><td class="num" dir="ltr" style="text-align:right">${esc(x.mobile||"—")}</td><td class="num">${esc(x.nid)}</td>
+    return `<tr><td>${esc(x.name)}</td><td class="num" dir="ltr" style="text-align:right">${esc(x.mobile||"—")}</td>
       <td>${esc(x.muni)}</td><td>${esc(x.spec)}</td>
       <td>${le ? `<span class="grade ${c}" style="margin:0">${le.total} · ${g}</span>` : `<span style="color:var(--muted)">لم يُقيَّم</span>`}</td>
       <td><div class="row-actions">
@@ -972,14 +967,14 @@ let editInsp = null, dSpec = "";
 function paintDSpec(){ document.querySelectorAll("#d-spec [data-v]").forEach(b=>b.classList.toggle("on", dSpec===b.dataset.v)); }
 function openInspDialog(id){
   const x = state.inspectors.find(i=>i.id===id); if(!x) return; editInsp = id;
-  $("#d-name").value=x.name; $("#d-mobile").value=x.mobile||""; $("#d-nid").value=x.nid; $("#d-muni").value=x.muni;
+  $("#d-name").value=x.name; $("#d-mobile").value=x.mobile||""; $("#d-muni").value=x.muni;
   dSpec = x.spec; paintDSpec(); FIELDS.forEach(f=>$("#de-"+f).textContent="");
   $("#idlg").showModal();
 }
 $("#d-spec").addEventListener("click", e=>{ const b=e.target.closest("[data-v]"); if(b){ dSpec=b.dataset.v; paintDSpec(); } });
 $("#idlg-cancel").onclick = ()=> $("#idlg").close();
 $("#idlg-save").onclick = ()=>{
-  const o = {name:$("#d-name").value.trim(), mobile:normMobile($("#d-mobile").value), nid:normNid($("#d-nid").value), muni:$("#d-muni").value.trim(), spec:dSpec};
+  const o = {name:$("#d-name").value.trim(), mobile:normMobile($("#d-mobile").value), muni:$("#d-muni").value.trim(), spec:dSpec};
   const e = checkInsp(o, editInsp); FIELDS.forEach(f=>$("#de-"+f).textContent = e[f]||"");
   if(Object.keys(e).length) return;
   const id = editInsp; $("#idlg").close();
@@ -1285,13 +1280,13 @@ $("#restore-file").onchange = async e=>{
   d.inspectors.forEach(x=>{
     if(!x || !x.id) return;
     const mobile = x.mobile ?? (x.emp && /^05\d{8}$/.test(normMobile(x.emp)) ? normMobile(x.emp) : "");
-    writes.push([doc(db,"inspectors",String(x.id)), clean({name:x.name||"", mobile:mobile||"", nid:x.nid||"", muni:x.muni||"", spec:x.spec||"", createdAt:x.createdAt||new Date().toISOString()})]);
+    writes.push([doc(db,"inspectors",String(x.id)), clean({name:x.name||"", mobile:mobile||"", muni:x.muni||"", spec:x.spec||"", createdAt:x.createdAt||new Date().toISOString()})]);
   });
   d.evaluations.forEach(x=>{
     if(!x || !x.inspectorId) return;
     const month = x.month || (x.createdAt||new Date().toISOString()).slice(0,7);
     const known = state.users.some(u=>u.id===x.evaluatorId) || x.evaluatorId===me.id;
-    const {id, period, ...rest} = x;
+    const {id, period, nid, emp, ...rest} = x;
     writes.push([doc(db,"evaluations",`${x.inspectorId}_${month}`), clean({...rest, month, evaluatorId: known ? x.evaluatorId : "legacy", evaluator:x.evaluator||"", createdBy: known ? (x.createdBy||me.id) : me.id, updatedBy:me.id})]);
   });
   try{
@@ -1300,6 +1295,20 @@ $("#restore-file").onchange = async e=>{
   }catch(err){ m.className = "msg bad"; m.textContent = fbErr(err); }
 };
 
+
+/* ---------- remove national IDs from the server (owner, one-off) ---------- */
+function nidCount(){ return state.inspectors.filter(x=>"nid" in x).length + state.evaluations.filter(x=>"nid" in x).length; }
+$("#btn-purge-nid").onclick = async ()=>{
+  const m = $("#data-msg"), targets = [...state.inspectors.filter(x=>"nid" in x).map(x=>["inspectors",x.id]), ...state.evaluations.filter(x=>"nid" in x).map(x=>["evaluations",x.id])];
+  if(!targets.length){ m.className = "msg ok"; m.textContent = "✓ لا توجد أي أرقام هويات على الخادم."; return; }
+  if(!confirm(`سيتم حذف رقم الهوية نهائياً من ${targets.length} سجل (مراقبين وتقييمات). لا يمكن التراجع عن هذا. متابعة؟`)) return;
+  const btn = $("#btn-purge-nid"); btn.disabled = true; m.className = "msg"; m.textContent = "جارٍ الحذف…";
+  try{
+    for(let i=0;i<targets.length;i+=400){ const b = writeBatch(db); targets.slice(i,i+400).forEach(([c,id])=>b.update(doc(db,c,id), {nid:deleteField()})); await b.commit(); }
+    m.className = "msg ok"; m.textContent = `✓ حُذفت أرقام الهويات من ${targets.length} سجل. لا تنسَ حذف ملفات النسخ الاحتياطية وملفات Excel القديمة التي فيها الهويات.`;
+  }catch(e){ m.className = "msg bad"; m.textContent = fbErr(e); }
+  finally{ btn.disabled = false; }
+};
 
 /* ---------- evaluation form ---------- */
 let scores = {}, editingId = null, pickedId = "";
@@ -1398,7 +1407,7 @@ function selectInspector(id){
   $("#e-pick").textContent = "";
   if(!x){ box.hidden = true; checkDup(); return; }
   box.hidden = false;
-  box.innerHTML = `<div><span>رقم الجوال: </span>${esc(x.mobile)}</div><div><span>رقم الهوية: </span>${esc(x.nid)}</div>
+  box.innerHTML = `<div><span>رقم الجوال: </span>${esc(x.mobile)}</div>
     <div><span>البلدية: </span>${esc(x.muni)}</div><div><span>التخصص: </span>${esc(x.spec)}</div>`;
   checkDup();
 }
@@ -1417,7 +1426,7 @@ $("#btn-reset").onclick = ()=>{ resetForm(); setMsg("",true); };
 $("#btn-save").onclick = async ()=>{
   const x = state.inspectors.find(i=>i.id===pickedId);
   const prev = editingId ? state.evaluations.find(e=>e.id===editingId) : null;
-  const who = x || (prev && {id:prev.inspectorId, name:prev.name, mobile:prev.mobile, nid:prev.nid, muni:prev.muni, spec:prev.spec});
+  const who = x || (prev && {id:prev.inspectorId, name:prev.name, mobile:prev.mobile, muni:prev.muni, spec:prev.spec});
   if(!who){ $("#e-pick").textContent = "اختر المراقب"; setMsg("اختر المراقب أولاً", false); return; }
   if(!me) return;
   if(!inScope(who.muni)){ setMsg("هذا المراقب ليس من بلديتك، ولا تملك صلاحية تقييمه.", false); return; }
@@ -1431,7 +1440,7 @@ $("#btn-save").onclick = async ()=>{
   const id = editingId || `${who.id}_${month}`;
   const rec = {
     inspectorId: who.id,
-    name:who.name, mobile:who.mobile||"", nid:who.nid||"", muni:who.muni, spec:who.spec||"",
+    name:who.name, mobile:who.mobile||"", muni:who.muni, spec:who.spec||"",
     month, evaluatorId: evId, evaluator: evaluatorName(evId) || prev?.evaluator || "",
     notes:$("#f-notes").value.trim(),
     scores:{...scores}, tech:round(r.axes.tech), behav:round(r.axes.behav), commit:round(r.axes.commit),
@@ -1476,7 +1485,7 @@ function filtered(){
   const q = toEn($("#q").value.trim()).toLowerCase(), m = $("#fl-muni").value, s = $("#fl-spec").value,
         mo = $("#fl-month").value, ev = $("#fl-ev").value;
   return sortedEvals().filter(evalVisible).filter(r => (!m || r.muni===m) && (!s || r.spec===s) && (!mo || r.month===mo) && (!ev || r.evaluator===ev) &&
-    (!q || [r.name,r.mobile,r.nid].some(v=>String(v||"").toLowerCase().includes(q))));
+    (!q || [r.name,r.mobile].some(v=>String(v||"").toLowerCase().includes(q))));
 }
 function renderRecords(){
   const list = filtered();
@@ -1505,7 +1514,7 @@ function openDetail(id){
   const [g,c] = grade(r.total);
   $("#dlg-body").innerHTML = `<h3>${esc(r.name)}</h3><span class="grade ${c}">${g} · ${r.total} من 100</span>
     <div class="kv"><div><span>شهر التقييم: </span>${monthLabel(r.month)}</div><div><span>المُقيِّم: </span>${esc(r.evaluator||"—")}</div>
-      <div><span>رقم الجوال: </span>${esc(r.mobile)}</div><div><span>رقم الهوية: </span>${esc(r.nid)}</div>
+      <div><span>رقم الجوال: </span>${esc(r.mobile)}</div>
       <div><span>البلدية: </span>${esc(r.muni)}</div><div><span>التخصص: </span>${esc(r.spec)}</div></div>
     ${AXES.map(a=>`<div class="detail-axis"><h4><span>${a.title} (${a.weight}%)</span><span>${fmt(r[a.key])}</span></h4>
       ${a.items.map((it,i)=>{const v=r.scores?.[`${a.key}-${i}`];return `<div class="detail-crit"><span>${it}</span><span>${v??"—"} ${v?"· "+LABELS[v]:""}</span></div>`}).join("")}</div>`).join("")}
@@ -1526,13 +1535,13 @@ $("#d-del").onclick = ()=>{
 };
 $("#btn-csv").onclick = ()=>{
   const list = filtered(); if(!list.length){ alert("لا توجد تقييمات للتصدير"); return; }
-  const head = ["شهر التقييم","الاسم","رقم الجوال","رقم الهوية","البلدية","التخصص","المقيّم",
+  const head = ["شهر التقييم","الاسم","رقم الجوال","البلدية","التخصص","المقيّم",
     ...AXES.flatMap(a=>a.items.map(it=>`${a.title}: ${it}`)),
     "الكفاءة الفنية %","السلوك والتواصل %","الالتزام %","الإجمالي","التقدير","ملاحظات"];
-  const rows = list.map(r=>[monthLabel(r.month),r.name,r.mobile||"",r.nid,r.muni,r.spec,r.evaluator||"",
+  const rows = list.map(r=>[monthLabel(r.month),r.name,r.mobile||"",r.muni,r.spec,r.evaluator||"",
     ...AXES.flatMap(a=>a.items.map((_,i)=>r.scores?.[`${a.key}-${i}`]??"")),
     r.tech,r.behav,r.commit,r.total,grade(r.total)[0],r.notes]);
-  saveXlsx(`تقييم-المراقبين-${$("#fl-month").value || today()}.xlsx`, [head,...rows], [2,3], [14,24,14,14,18,10,18]);
+  saveXlsx(`تقييم-المراقبين-${$("#fl-month").value || today()}.xlsx`, [head,...rows], [2], [14,24,14,18,10,18]);
 };
 
 /* ---------- dashboard ---------- */
